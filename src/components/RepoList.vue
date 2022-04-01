@@ -1,9 +1,10 @@
 <script setup>
-// import axios from 'axios';
 import { onMounted, reactive, ref } from 'vue';
 
+const allRepoList = reactive({ lists: [] });
 const repoList = reactive({ lists: [] });
 const loading = ref(false);
+const noData = ref(false);
 const count = ref(6); // 每次載入筆數
 
 const getRepoList = (counts) => {
@@ -19,10 +20,9 @@ const getRepoList = (counts) => {
   };
   fetch(url, config).then((response) => response.json())
     .then((result) => {
-      repoList.lists = [];
-      // eslint-disable-next-line no-plusplus
-      for (let i = 0; i < counts.value; i++) {
-        repoList.lists.push(result[i]);
+      allRepoList.lists = result;
+      for (let i = 0; i < counts; i += 1) {
+        repoList.lists.push(allRepoList.lists[i]);
       }
     })
     .catch((error) => console.log('error', error));
@@ -30,15 +30,27 @@ const getRepoList = (counts) => {
 
 const loadMore = () => {
   loading.value = true;
-  setTimeout(() => {
-    count.value += 6;
-    loading.value = false;
-    getRepoList(count);
-  }, 3000);
+
+  if (allRepoList.lists.length > 0 && allRepoList.lists.length <= count.value) {
+    noData.value = true;
+    return;
+  }
+  if (!noData.value) {
+    setTimeout(() => {
+      repoList.lists = [];
+      count.value += 6;
+      loading.value = false;
+      for (let i = 0; i < count.value; i += 1) {
+        if (allRepoList.lists[i]) {
+          repoList.lists.push(allRepoList.lists[i]);
+        }
+      }
+    }, 2000);
+  }
 };
 
 onMounted(() => {
-  getRepoList(count);
+  getRepoList(count.value);
 });
 </script>
 
@@ -53,6 +65,7 @@ onMounted(() => {
       </div>
     </div>
     <p v-if="loading.value">Loading...</p>
+    <p v-if="noData.value">No Data</p>
   </section>
 </template>
 
