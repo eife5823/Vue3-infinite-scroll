@@ -1,71 +1,58 @@
 <script setup>
 import { onMounted, reactive, ref } from 'vue';
+import request from '../request';
 
-const allRepoList = reactive({ lists: [] });
 const repoList = reactive({ lists: [] });
 const loading = ref(false);
 const noData = ref(false);
 const count = ref(6); // 每次載入筆數
+const page = ref(1);
 
-const getRepoList = (counts) => {
-  const url = 'https://api.github.com/users/aszx87410/repos';
-  const headers = new Headers();
-  headers.append('Accept', 'application/vnd.github.v3+json');
-  headers.append('Authorization', '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');
-
-  const config = {
-    method: 'GET',
-    headers,
-    redirect: 'follow',
-  };
-  fetch(url, config).then((response) => response.json())
-    .then((result) => {
-      allRepoList.lists = result;
-      for (let i = 0; i < counts; i += 1) {
-        repoList.lists.push(allRepoList.lists[i]);
+const getRepoList = (counts, pages) => {
+  request
+    .get('https://api.github.com/users/aszx87410/repos', {
+      params: { per_page: counts, page: pages },
+    })
+    .then((res) => {
+      loading.value = false;
+      if (res.length > 0) {
+        res.forEach((item) => {
+          repoList.lists.push(item);
+        });
+        page.value += 1;
+      } else {
+        noData.value = true;
       }
     })
-    .catch((error) => console.log('error', error));
+    .catch((error) => console.log(error));
 };
 
 const loadMore = () => {
-  loading.value = true;
-
-  if (allRepoList.lists.length > 0 && allRepoList.lists.length <= count.value) {
-    noData.value = true;
-    return;
-  }
-  if (!noData.value) {
-    setTimeout(() => {
-      repoList.lists = [];
-      count.value += 6;
-      loading.value = false;
-      for (let i = 0; i < count.value; i += 1) {
-        if (allRepoList.lists[i]) {
-          repoList.lists.push(allRepoList.lists[i]);
-        }
-      }
-    }, 2000);
-  }
+  window.onscroll = () => {
+    const bottomOfWindow = document.documentElement.offsetHeight
+        - document.documentElement.scrollTop
+        - window.innerHeight <= 50;
+    if (bottomOfWindow && !loading.value && !noData.value) {
+      loading.value = true;
+      getRepoList(count.value, page.value);
+    }
+  };
 };
 
 onMounted(() => {
-  getRepoList(count.value);
+  getRepoList(count.value, page.value);
+  loadMore();
 });
 </script>
 
 <template>
   <section class="repoList">
     <h1>Huli's Repo List</h1>
-    <div v-infinite-scroll="loadMore">
-      <div class="repoList__item" v-for="item in repoList.lists" :key="item.id">
-        <h3>{{ item.name }}</h3>
-        <p>{{ item.description }}</p>
-        <a :href="item.html_url">{{ item.html_url }}</a>
-      </div>
+    <div class="repoList__item" v-for="item in repoList.lists" :key="item.id">
+      <h3>{{ item.name }}</h3>
+      <p>{{ item.description }}</p>
+      <a :href="item.html_url">{{ item.html_url }}</a>
     </div>
-    <p v-if="loading.value">Loading...</p>
-    <p v-if="noData.value">No Data</p>
   </section>
 </template>
 
@@ -75,7 +62,7 @@ body {
 }
 .repoList {
   padding: 40px;
-  background-color: #D7C4BB;
+  background-color: #d7c4bb;
 }
 .repoList__item {
   background-color: #fff;
